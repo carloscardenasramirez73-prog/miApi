@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const sequelize = require('./config/db');
-const Producto = require('./models/Producto');
+const { Usuario } = require('./models');
 
 const app = express();
 
@@ -13,58 +13,35 @@ app.get('/', (req, res) => {
     res.send('API Backend funcionando exitosamente!');
 });
 
-// --- RUTAS CRUD PARA PRODUCTOS ---
+// --- RUTAS DEL SISTEMA DE INVENTARIO ---
+app.use('/dashboard', require('./routes/dashboard'));
+app.use('/productos', require('./routes/productos'));
+app.use('/categorias', require('./routes/categorias'));
+app.use('/proveedores', require('./routes/proveedores'));
+app.use('/usuarios', require('./routes/usuarios'));
+app.use('/movimientos', require('./routes/movimientos'));
 
-// 1. POST: Crear un nuevo producto (Hace funcionar el botón Guardar)
-app.post('/productos', async (req, res) => {
-    try {
-        const nuevoProducto = await Producto.create(req.body);
-        res.json(nuevoProducto);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 2. GET: Obtener todos los productos (Hace funcionar la Lista de Productos)
-app.get('/productos', async (req, res) => {
-    try {
-        const productos = await Producto.findAll();
-        res.json(productos);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 3. PUT: Actualizar un producto existente (Hace funcionar el botón Editar)
-app.put('/productos/:id', async (req, res) => {
-    try {
-        await Producto.update(req.body, {
-            where: { id: req.params.id }
+// Si no existe ningún usuario, crea un administrador inicial para poder registrar movimientos
+async function crearAdministradorInicial() {
+    const total = await Usuario.count();
+    if (total === 0) {
+        await Usuario.create({
+            nombre: 'Administrador',
+            email: 'admin@senati.pe',
+            password: 'admin123',
+            rol: 'Administrador'
         });
-        res.json({ message: 'Producto actualizado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.log('Usuario administrador inicial creado: admin@senati.pe / admin123');
     }
-});
-
-// 4. DELETE: Eliminar un producto (Hace funcionar el botón Eliminar)
-app.delete('/productos/:id', async (req, res) => {
-    try {
-        await Producto.destroy({
-            where: { id: req.params.id }
-        });
-        res.json({ message: 'Producto eliminado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+}
 
 // --- SINCRONIZACIÓN Y ARRANQUE ---
 const PORT = process.env.PORT || 3006;
 
 sequelize.sync({ force: false })
-    .then(() => {
+    .then(async () => {
         console.log('Base de datos conectada y sincronizada.');
+        await crearAdministradorInicial();
         app.listen(PORT, () => {
             console.log(`Servidor corriendo en http://localhost:${PORT}`);
         });

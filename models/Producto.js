@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
+// Las llaves foráneas categoria_id y proveedor_id se crean en models/index.js (asociaciones)
 const Producto = sequelize.define('Producto', {
     nombre: {
         type: DataTypes.STRING,
@@ -18,6 +19,7 @@ const Producto = sequelize.define('Producto', {
         defaultValue: 0
     }
 }, {
+    tableName: 'productos',
     timestamps: true // Crea automáticamente createdAt y updatedAt
 });
 
