@@ -1,21 +1,7 @@
-const crypto = require('crypto');
+// models/Usuario.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-
-// Guardamos la contraseña "hasheada" con scrypt (viene incluido en Node, no hay que instalar nada).
-// Formato guardado: salt:hash
-function hashPassword(plano) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync(plano, salt, 64).toString('hex');
-    return `${salt}:${hash}`;
-}
-
-// Se usará más adelante cuando se implemente el Login
-function verificarPassword(plano, guardado) {
-    const [salt, hash] = guardado.split(':');
-    const hashIntento = crypto.scryptSync(plano, salt, 64);
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), hashIntento);
-}
+const bcrypt = require('bcryptjs');
 
 const Usuario = sequelize.define('Usuario', {
     nombre: {
@@ -26,12 +12,13 @@ const Usuario = sequelize.define('Usuario', {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        validate: { isEmail: { msg: 'El email del usuario no es válido' } }
+        validate: { isEmail: true }
     },
     password: {
         type: DataTypes.STRING,
         allowNull: false
     },
+    // Se mantiene el ENUM del Laboratorio 9 (así no hay que modificar la tabla)
     rol: {
         type: DataTypes.ENUM('Administrador', 'Almacenero', 'Supervisor'),
         allowNull: false,
@@ -41,14 +28,18 @@ const Usuario = sequelize.define('Usuario', {
     tableName: 'usuarios',
     timestamps: true,
     hooks: {
-        beforeSave: (usuario) => {
+        // Antes de guardar o actualizar en la base de datos, ciframos la contraseña (Prevención contra brechas)
+        beforeCreate: async (usuario) => {
+            const salt = await bcrypt.genSalt(10);
+            usuario.password = await bcrypt.hash(usuario.password, salt);
+        },
+        beforeUpdate: async (usuario) => {
             if (usuario.changed('password')) {
-                usuario.password = hashPassword(usuario.password);
+                const salt = await bcrypt.genSalt(10);
+                usuario.password = await bcrypt.hash(usuario.password, salt);
             }
         }
     }
 });
-
-Usuario.verificarPassword = verificarPassword;
 
 module.exports = Usuario;
